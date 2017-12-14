@@ -4,68 +4,123 @@
 #include <stdio.h>
 #include<string.h>
 #include <unistd.h>
+#include <ctype.h>
 
-typedef struct lista {
-    int val;
-    struct lista * next;
-} lista;
-
-void print_list(lista * head) {
-    lista * current = head;
-    puts("lel");
-    while(current->next != NULL) {
-    	puts("lel2");
-    	printf("%d, ", current->val);
-        current = current->next;
-    }
-    printf("\n");
-}
 char liczby[10];
-int i=0;
-int main(int argc,char **argv)
-{
-    int sockfd,n;
-    char sendline[10];
-    char recvline[100];
-    struct sockaddr_in servaddr;
-    int stan;
+int i = 0;
+char wiadomosc[100];
+int wybor = 0;
+int sprawdz = 1;
 
-    liczby[0] = "\0";
+void clearScreen() {
+	const char *CLEAR_SCREEN_ANSI = "\e[1;1H\e[2J";
+	write(STDOUT_FILENO, CLEAR_SCREEN_ANSI, 12);
+}
 
-    lista * test_list = malloc(sizeof(lista));
+int wysylanie_liczb(int sockfd) {
+	char sendline[10];
+	bzero(sendline, 10);
+	printf("Wprowadz liczbe (x aby zakonczyc): \n");
+	do {
+		fgets(sendline, 10, stdin);
+		if(atoi(sendline) != 0){
+			break;
+		}else if(!strcmp(sendline, "x\n")){
+			break;
+		}
+		printf("Wprowadz poprawna liczbe:\n");
+	} while (1);
 
-    sockfd=socket(AF_INET,SOCK_STREAM,0);
-    bzero(&servaddr,sizeof servaddr);
+	if (write(sockfd, sendline, 10) < 0) {
+		perror(write);
+	}
+	if (strcmp(sendline, "x\n") == 0) {
+		return 1;
+	}
+	return 0;
 
-    servaddr.sin_family=AF_INET;
-    servaddr.sin_port=htons(22000);
+}
 
-    inet_pton(AF_INET,"127.0.0.1",&(servaddr.sin_addr));
+void menu() {
+	printf("Jaka operacje chcesz wykonac? \n");
+	printf("a. Dowawanie\n");
+	printf("b. Odejmowanie\n");
+	printf("c. Sortowanie rosnąco\n");
+	printf("d. Sortowanie malejaco\n");
+	printf("e. Wprowadz liczby\n");
+	printf("f. Wyswietl wprowadzone liczby\n");
+	printf("exit - aby zakonczyc\n");
 
-    connect(sockfd,(struct sockaddr *)&servaddr,sizeof(servaddr));
+}
 
-    while(1)
-    {
-        bzero( sendline, 100);
-        bzero( recvline, 100);
-        /*switch(stan){
-        case 1:
+int wybor_opcji(int sockfd) {
+	char opcja[10];
+	menu();
+	printf("Wprowadz litere odpowiadajaca dzialaniu: \n");
+	fgets(opcja, 10, stdin);
+	if (strcmp(opcja, "exit\n") == 0) {
+		exit(0);
+	}
+	write(sockfd, opcja, 10);
+	if (strcmp(opcja, "e\n") == 0) {
+		return 0;
+	} else if (strcmp(opcja, "f\n") == 0) {
+		return 2;
+	} else if (strcmp(opcja, "a\n") == 0) {
+		return 2;
+	} else if (strcmp(opcja, "b\n") == 0) {
+		return 2;
+	} else if (strcmp(opcja, "c\n") == 0) {
+		return 2;
+	} else if (strcmp(opcja, "d\n") == 0) {
+		return 2;
+	} else {
+		return 1;
+	}
 
-        break;
-        }*/
+}
 
-        printf("Wprowadz liczbe: ");
-        fgets(sendline,100,stdin); /*stdin = 0 , for standard input */
-        write(sockfd,sendline,10);
-        read(sockfd,liczby,100);
-        sleep(1);
-        i = 0;
+int odbierz_liczby(int sockfd) {
+	int recv_out;
+	if ((recv_out = recv(sockfd, wiadomosc, sizeof(wiadomosc), NULL)) < 0) {
+		perror("read");
 
-        while(liczby[i] != '\0'){
-        printf("dodales: %d\n",liczby[i++]);
-        }
+	} else {
+		printf("%s\n", wiadomosc);
+		printf("Enter aby przejsc dalej");
+		while (getchar() != '\n')
+			;
+		clearScreen();
+	}
+	return 1;
+}
 
-        //print_list(test_list);
-    }
+int main(int argc, char **argv) {
+	int sockfd, n;
+	int port[6];
+	struct sockaddr_in servaddr;
+
+	puts("Wpisz numer portu: ");
+	fgets(port, 10, stdin);
+
+	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	bzero(&servaddr, sizeof servaddr);
+
+	servaddr.sin_family = AF_INET;
+	servaddr.sin_port = htons(atoi(port));
+
+	inet_pton(AF_INET, "127.0.0.1", &(servaddr.sin_addr));
+
+	connect(sockfd, (struct sockaddr *) &servaddr, sizeof(servaddr));
+
+	while (1) {
+		if (wybor == 0) {
+			wybor = wysylanie_liczb(sockfd);
+		} else if (wybor == 1) {
+			wybor = wybor_opcji(sockfd);
+		} else if (wybor == 2) {
+			wybor = odbierz_liczby(sockfd);
+		}
+	}
 
 }
